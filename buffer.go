@@ -32,5 +32,5 @@ func ParseBuffer(buffer []byte) ([][]byte, []byte) {
 		}
 	}
 
-	return metrics, metricBuffer[:metricSize]
+	return metrics, metricBuffer[metricBufferUsage - metricSize:metricBufferUsage]
 }

@@ -28,6 +28,7 @@ func TestParseBuffer(t *testing.T) {
 
 func BenchmarkParseBuffer(b *testing.B) {
 	metricBuffer := []byte("a.b.c 12 1\na.b.c 12 1\na.b.c 12 1\na.b.c 12 1\na.b.c 12 1234\na.v 1 12\nav.b 1 234\na.vasdf.v 1 21231\nadfahsfaisfhalskdfjhasfiuahsfskldaj.asf")
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ParseBuffer(metricBuffer)
 	}

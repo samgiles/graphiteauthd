@@ -3,18 +3,27 @@ package main
 // Split the buffer by '\n' (0x0A) characters, return an byte[][] of
 // indicating each metric, and byte[] of the remaining parts of the buffer
 func ParseBuffer(buffer []byte) ([][]byte, []byte) {
-	metrics := make([][]byte, 0)
+	metrics := make([][]byte, 8)
 
-	var metricBufferCapacity uint32 = 0xff
+	var metricBufferCapacity uint = 0xff
 	metricBuffer := make([]byte, metricBufferCapacity)
 
-	var metricSize uint32 =  0
-	var metricBufferUsage uint32 = 0
+	var metricSize uint =  0
+	var metricBufferUsage uint = 0
+	var totalMetrics int = 0
 
 	for _, b := range buffer {
 		if b == '\n' {
 
-			metrics = append(metrics, metricBuffer[metricBufferUsage - metricSize:metricBufferUsage])
+			metrics[totalMetrics] = metricBuffer[metricBufferUsage - metricSize:metricBufferUsage]
+			totalMetrics++
+
+			if totalMetrics > cap(metrics) {
+				newMetrics  := make([][]byte, cap(metrics), (cap(metrics) + 1) * 2)
+				copy(newMetrics, metrics)
+				metrics = newMetrics
+			}
+
 			metricSize = 0;
 		} else {
 
@@ -32,5 +41,5 @@ func ParseBuffer(buffer []byte) ([][]byte, []byte) {
 		}
 	}
 
-	return metrics, metricBuffer[metricBufferUsage - metricSize:metricBufferUsage]
+	return metrics[:totalMetrics], metricBuffer[metricBufferUsage - metricSize:metricBufferUsage]
 }

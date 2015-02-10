@@ -1,0 +1,10 @@
+language: go
+go:
+  - 1.3
+  - tip
+
+install: make default
+
+script:
+  - make test
+  - make bench

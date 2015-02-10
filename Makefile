@@ -1,9 +1,12 @@
 default: bin/graphiteauthd
 
+get-deps:
+	go get github.com/mgutz/ansi
+
 bin/:
 	mkdir -p bin/
 
-bin/graphiteauthd: bin/ main.go
+bin/graphiteauthd: bin/ main.go get-deps
 	go build main.go && mv main bin/graphiteauthd
 
 clean:

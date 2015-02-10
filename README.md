@@ -1,4 +1,4 @@
-# graphiteauthd: Simple Graphite Authentication Proxy
+# graphiteauthd: Graphite Authentication Proxy
 
 Drops any metrics where the root namespace does not match a sha256 API key.
 

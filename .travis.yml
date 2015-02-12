@@ -3,8 +3,7 @@ go:
   - 1.3
   - tip
 
-install: make default
+install: go build
 
 script:
-  - make test
-  - make bench
+  - go test -bench .

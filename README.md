@@ -20,19 +20,18 @@ Usage of graphiteauthd:
 
 Build:
 ```SHELL
-make
+go build
 ```
 
 Test:
 ```SHELL
-make test
-make bench
+go test
+go test -bench .
 ```
 
 Current build status: [![Build Status](https://travis-ci.org/samgiles/graphiteauthd.svg?branch=master)](https://travis-ci.org/samgiles/graphiteauthd)
 
 ### TODO
-- Encryption
 - Better error handling when the backend connections drop
 - More tests (only the parsing and filtering is tested/benched at this point)
 

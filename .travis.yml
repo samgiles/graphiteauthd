@@ -3,7 +3,7 @@ go:
   - 1.3
   - tip
 
-install: go build
+install: go get
 
 script:
   - go test -bench .

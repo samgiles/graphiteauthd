@@ -20,7 +20,7 @@ Usage of graphiteauthd:
 
 Build:
 ```SHELL
-go build
+go get
 ```
 
 Test:

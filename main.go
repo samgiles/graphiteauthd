@@ -26,6 +26,7 @@ package main
 import (
 	"flag"
 	"net"
+	"crypto/tls"
 	"fmt"
 	"os"
 	"io"
@@ -39,6 +40,9 @@ var colours = flag.Bool("colour", true, "Colourise output")
 var remoteAddressString = flag.String("remote", "", "Address and port of remote graphite instance")
 var acceptKeyString     = flag.String("apikey", "MYAPIKEY", "API key to accept")
 
+var certificateFile = flag.String("cert", "", "Path to .pem certificate")
+var keyFile         = flag.String("key", "", "Path to .pem key file")
+
 func main() {
 	flag.Parse()
 
@@ -48,25 +52,33 @@ func main() {
 		os.Exit(1)
 	}
 
-	listenAddress, err := net.ResolveTCPAddr("tcp", *listenAddressString)
-	check(err)
 
-	remoteAddress, err := net.ResolveTCPAddr("tcp", *remoteAddressString)
-	check(err)
+	multiplexers := initialiseMultiplexers(*numberOfBackendConnections, *remoteAddressString)
 
+	if *certificateFile == "" || *keyFile == "" {
+		warn("No certiciate file or key file found, not using TLS")
+		listener, err := net.Listen("tcp", *listenAddressString)
+		check(err)
+		startListening(listener, multiplexers)
+	} else {
+		cert, err := tls.LoadX509KeyPair(*certificateFile, *keyFile)
+		check(err)
+		tlsConfig := tls.Config{Certificates: []tls.Certificate{cert}}
+		listener, err := tls.Listen("tcp", *listenAddressString, &tlsConfig)
+		check(err)
+		startListening(listener, multiplexers)
+	}
 
-	multiplexers := initialiseMultiplexers(*numberOfBackendConnections, remoteAddress)
-
-	startListening(listenAddress, multiplexers)
 }
 
-func initialiseMultiplexers(count int, remoteAddress *net.TCPAddr) []multiplexer {
+
+func initialiseMultiplexers(count int, remoteAddress string) []multiplexer {
 	multiplexers := make([]multiplexer, count)
 
 	// Initialise m
 	fmt.Printf("Starting %d backend connection(s)\n", count)
 	for i := 0; i < count; i++ {
-		remoteConnection, err := net.DialTCP("tcp", nil, remoteAddress)
+		remoteConnection, err := net.Dial("tcp", remoteAddress)
 		check(err)
 
 		multiplexers[i] = multiplexer {
@@ -80,14 +92,12 @@ func initialiseMultiplexers(count int, remoteAddress *net.TCPAddr) []multiplexer
 	return multiplexers
 }
 
-func startListening(listenAddress *net.TCPAddr, multiplexers []multiplexer) {
-	listener, err := net.ListenTCP("tcp", listenAddress)
-	check(err)
+func startListening(listener net.Listener, multiplexers []multiplexer) {
 	var nextMultiplexer = 0
 	var connectionId = 0
 	fmt.Printf("Starting listener\n");
 	for {
-		connection, err := listener.AcceptTCP()
+		connection, err := listener.Accept()
 		if err != nil {
 			warn("Failed to accept connection '%s'\n", err)
 			continue
@@ -119,7 +129,7 @@ func startListening(listenAddress *net.TCPAddr, multiplexers []multiplexer) {
 // A multiplexer represents a single TCP connection used to multiplex many
 // connections
 type multiplexer struct {
-	remoteConnection  *net.TCPConn
+	remoteConnection  net.Conn
 	erred              bool
 	closesig           chan bool
 	id                 int
@@ -132,7 +142,7 @@ func (m *multiplexer) Write(bytes []byte) (int, error) {
 
 type proxy struct {
 	multiplexer multiplexer
-	localConnection  *net.TCPConn
+	localConnection  net.Conn
 	erred            bool
 	closesig         chan bool
 	prefix           int

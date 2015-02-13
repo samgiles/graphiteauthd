@@ -37,7 +37,8 @@ func TestParseBuffer(t *testing.T) {
 	metrics, remaining := ParseBuffer(metricBuffer, testKey)
 
 	for _, b := range metrics {
-		if !bytes.Equal(b, append(testKey, []byte{'.', 'b', '.', 'c', ' ', '1', '2', ' ', '1'}...)) {
+		if !bytes.Equal(b, append(testKey, []byte{'.', 'b', '.', 'c', ' ',
+		'1', '2', ' ', '1', '\n'}...)) {
 			fmt.Printf("Metrics: Expected: '%x', Actual: '%x'", "185f8db32271fe25f561a6fc938b2e264306ec304eda518007d1764826381969.b.c 123 1234567", b)
 			t.Fail()
 			return

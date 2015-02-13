@@ -98,6 +98,7 @@ func startListening(listener net.Listener, multiplexers []multiplexer) {
 	fmt.Printf("Starting listener\n");
 	for {
 		connection, err := listener.Accept()
+		fmt.Printf("Accepted new connection: %d\r", connectionId + 1);
 		if err != nil {
 			warn("Failed to accept connection '%s'\n", err)
 			continue
@@ -136,8 +137,7 @@ type multiplexer struct {
 }
 
 func (m *multiplexer) Write(bytes []byte) (int, error) {
-	debugId := []byte(fmt.Sprintf("Multiplexer[%d]: ", m.id))
-	return m.remoteConnection.Write(append(debugId, bytes...))
+	return m.remoteConnection.Write(bytes)
 }
 
 type proxy struct {
@@ -237,9 +237,11 @@ func ParseBuffer(buffer []byte, validKey []byte) ([][]byte, []byte) {
 	var metricBufferUsage uint = 0
 	var totalMetrics int = 0
 	var isValidMetric = false
+	var lastSeenNewLine = false
 
 	for _, b := range buffer {
-		if b == '\n' {
+		if lastSeenNewLine {
+			lastSeenNewLine = false
 			if isValidMetric {
 				metrics[totalMetrics] = metricBuffer[metricBufferUsage - metricSize:metricBufferUsage]
 				totalMetrics++
@@ -253,35 +255,37 @@ func ParseBuffer(buffer []byte, validKey []byte) ([][]byte, []byte) {
 
 			metricSize = 0;
 			isValidMetric = false
-		} else {
-
-			if metricBufferUsage == metricBufferCapacity {
-				newMetricBufferCapacity := (metricBufferCapacity + 1) * 2
-				newBuffer := make([]byte, newMetricBufferCapacity, newMetricBufferCapacity)
-				copy(newBuffer, metricBuffer)
-				metricBuffer = newBuffer
-				metricBufferCapacity = newMetricBufferCapacity
-			}
-
-
-			// 32 length in bytes of a sha256 hash (buffer the first 32 bytes
-			// in order to perform a comparison
-			if metricSize <= 64 {
-				// Until the first '.' character record the root of the
-				// namespace
-				if metricSize == 64 {
-					if b == '.' && bytes.Equal(rootNamespaceBuffer, validKey) {
-						isValidMetric = true
-					}
-				} else {
-					rootNamespaceBuffer[metricSize] = b;
-				}
-			}
-
-			metricBuffer[metricBufferUsage] = b
-			metricSize++
-			metricBufferUsage++
 		}
+
+		if metricBufferUsage == metricBufferCapacity {
+			newMetricBufferCapacity := (metricBufferCapacity + 1) * 2
+			newBuffer := make([]byte, newMetricBufferCapacity, newMetricBufferCapacity)
+			copy(newBuffer, metricBuffer)
+			metricBuffer = newBuffer
+			metricBufferCapacity = newMetricBufferCapacity
+		}
+
+		if b == '\n' {
+			lastSeenNewLine = true;
+		}
+
+		// 32 length in bytes of a sha256 hash (buffer the first 32 bytes
+		// in order to perform a comparison
+		if metricSize <= 64 {
+			// Until the first '.' character record the root of the
+			// namespace
+			if metricSize == 64 {
+				if b == '.' && bytes.Equal(rootNamespaceBuffer, validKey) {
+					isValidMetric = true
+				}
+			} else {
+				rootNamespaceBuffer[metricSize] = b;
+			}
+		}
+
+		metricBuffer[metricBufferUsage] = b
+		metricSize++
+		metricBufferUsage++
 	}
 
 	return metrics[:totalMetrics], metricBuffer[metricBufferUsage - metricSize:metricBufferUsage]

@@ -25,6 +25,7 @@ package main
 
 import (
 	"flag"
+	"errors"
 	"net"
 	"crypto/tls"
 	"fmt"
@@ -180,7 +181,12 @@ func (p *proxy) pipe() {
 
 		receivedBytes := buffer[:numberOfBytes]
 
-		metrics, remaining := ParseBuffer(receivedBytes, []byte(*acceptKeyString))
+		metrics, remaining, err := ParseBuffer(receivedBytes, []byte(*acceptKeyString))
+		if err != nil {
+			p.err("Connection dropped terminated '%s'\n", err)
+			return
+		}
+
 		offset = len(remaining)
 		copy(buffer[:offset], remaining)
 
@@ -226,7 +232,7 @@ func c(str, style string) string {
 
 // Split the buffer by '\n' (0x0A) characters, return an byte[][] of
 // indicating each metric, and byte[] of the remaining parts of the buffer
-func ParseBuffer(buffer []byte, validKey []byte) ([][]byte, []byte) {
+func ParseBuffer(buffer []byte, validKey []byte) ([][]byte, []byte, error) {
 	metrics := make([][]byte, 8)
 	rootNamespaceBuffer := make([]byte, 64)
 
@@ -268,8 +274,8 @@ func ParseBuffer(buffer []byte, validKey []byte) ([][]byte, []byte) {
 		metricBufferUsage++
 
 		if b == '\n' {
+			metrics[totalMetrics] = metricBuffer[metricBufferUsage - metricSize:metricBufferUsage]
 			if isValidMetric {
-				metrics[totalMetrics] = metricBuffer[metricBufferUsage - metricSize:metricBufferUsage]
 				totalMetrics++
 
 				if totalMetrics == cap(metrics) {
@@ -277,6 +283,8 @@ func ParseBuffer(buffer []byte, validKey []byte) ([][]byte, []byte) {
 					copy(newMetrics, metrics)
 					metrics = newMetrics
 				}
+			} else {
+				return nil, nil, errors.New(fmt.Sprintf("Invalid API key: %s", metrics[totalMetrics]))
 			}
 
 			metricSize = 0;
@@ -284,5 +292,5 @@ func ParseBuffer(buffer []byte, validKey []byte) ([][]byte, []byte) {
 		}
 	}
 
-	return metrics[:totalMetrics], metricBuffer[metricBufferUsage - metricSize:metricBufferUsage]
+	return metrics[:totalMetrics], metricBuffer[(metricBufferUsage - metricSize):metricBufferUsage], nil
 }

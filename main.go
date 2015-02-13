@@ -237,25 +237,8 @@ func ParseBuffer(buffer []byte, validKey []byte) ([][]byte, []byte) {
 	var metricBufferUsage uint = 0
 	var totalMetrics int = 0
 	var isValidMetric = false
-	var lastSeenNewLine = false
 
 	for _, b := range buffer {
-		if lastSeenNewLine {
-			lastSeenNewLine = false
-			if isValidMetric {
-				metrics[totalMetrics] = metricBuffer[metricBufferUsage - metricSize:metricBufferUsage]
-				totalMetrics++
-
-				if totalMetrics > cap(metrics) {
-					newMetrics  := make([][]byte, cap(metrics), (cap(metrics) + 1) * 2)
-					copy(newMetrics, metrics)
-					metrics = newMetrics
-				}
-			}
-
-			metricSize = 0;
-			isValidMetric = false
-		}
 
 		if metricBufferUsage == metricBufferCapacity {
 			newMetricBufferCapacity := (metricBufferCapacity + 1) * 2
@@ -265,9 +248,6 @@ func ParseBuffer(buffer []byte, validKey []byte) ([][]byte, []byte) {
 			metricBufferCapacity = newMetricBufferCapacity
 		}
 
-		if b == '\n' {
-			lastSeenNewLine = true;
-		}
 
 		// 32 length in bytes of a sha256 hash (buffer the first 32 bytes
 		// in order to perform a comparison
@@ -286,6 +266,22 @@ func ParseBuffer(buffer []byte, validKey []byte) ([][]byte, []byte) {
 		metricBuffer[metricBufferUsage] = b
 		metricSize++
 		metricBufferUsage++
+
+		if b == '\n' {
+			if isValidMetric {
+				metrics[totalMetrics] = metricBuffer[metricBufferUsage - metricSize:metricBufferUsage]
+				totalMetrics++
+
+				if totalMetrics == cap(metrics) {
+					newMetrics  := make([][]byte, cap(metrics), (cap(metrics) + 1) * 2)
+					copy(newMetrics, metrics)
+					metrics = newMetrics
+				}
+			}
+
+			metricSize = 0;
+			isValidMetric = false
+		}
 	}
 
 	return metrics[:totalMetrics], metricBuffer[metricBufferUsage - metricSize:metricBufferUsage]

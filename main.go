@@ -65,7 +65,7 @@ func main() {
 
 
 	if *certificateFile == "" || *keyFile == "" {
-		warn("No certiciate file or key file found, not using TLS")
+		warn("No certificate file or key file found, not using TLS")
 		listener, err := net.Listen("tcp", *listenAddressString)
 		check(err)
 		startListening(listener, multiplexers)
@@ -84,7 +84,6 @@ func main() {
 func initialiseMultiplexers(count int, remoteAddress string) []multiplexer {
 	multiplexers := make([]multiplexer, count)
 
-	// Initialise m
 	fmt.Printf("Starting %d backend connection(s)\n", count)
 	for i := 0; i < count; i++ {
 		remoteConnection, err := net.Dial("tcp", remoteAddress)
@@ -107,7 +106,6 @@ func startListening(listener net.Listener, multiplexers []multiplexer) {
 	fmt.Printf("Starting listener\n");
 	for {
 		connection, err := listener.Accept()
-		fmt.Printf("Accepted new connection: %d\r", connectionId + 1);
 		if err != nil {
 			warn("Failed to accept connection '%s'\n", err)
 			continue
@@ -226,7 +224,7 @@ func check(err error) {
 }
 
 func warn(f string, args ...interface{}) {
-	fmt.Printf(f+"\n", args...)
+	fmt.Printf(f + "\n", args...)
 }
 
 
@@ -249,11 +247,11 @@ func ParseBuffer(buffer []byte, apiKeys *bytetrie.Node) ([]byte, []byte, error) 
 		if !(b == '.' || rootNamespaceAccepted) {
 			currentSearchNode, byteAccepted = currentSearchNode.Accepts(b)
 			if !byteAccepted {
-				return nil, nil,  errors.New(fmt.Sprintf("Invalid API key: %s*\n", metricBuffer[metricBufferUsage - metricSize:metricBufferUsage]))
+				return nil, nil,  errors.New(fmt.Sprintf("Invalid API key: %s*", metricBuffer[metricBufferUsage - metricSize:metricBufferUsage]))
 			}
 		} else {
 			if !currentSearchNode.IsLeaf {
-				return nil, nil, errors.New(fmt.Sprintf("Invalid API key: %s\n", metricBuffer[metricBufferUsage - metricSize:metricBufferUsage]))
+				return nil, nil, errors.New(fmt.Sprintf("Invalid API key: %s", metricBuffer[metricBufferUsage - metricSize:metricBufferUsage]))
 			} else {
 				rootNamespaceAccepted = true
 			}

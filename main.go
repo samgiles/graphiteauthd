@@ -250,7 +250,7 @@ func ParseBuffer(buffer []byte, apiKeys *bytetrie.Node) ([][]byte, []byte, error
 
 	for _, b := range buffer {
 
-		if b != '.' && !rootNamespaceAccepted {
+		if !(b == '.' || rootNamespaceAccepted) {
 			currentSearchNode, byteAccepted = currentSearchNode.Accepts(b)
 			if !byteAccepted {
 				return nil, nil,  errors.New(fmt.Sprintf("Invalid API key: %s*\n", metrics[totalMetrics]))

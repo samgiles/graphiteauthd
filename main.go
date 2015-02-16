@@ -199,12 +199,10 @@ func (p *proxy) pipe() {
 		copy(buffer[:offset], remaining)
 
 		//write out result
-		for _, element := range metrics {
-			_, err = dest.Write(element)
-			if err != nil {
-				p.err("Write failed '%s'\n", err)
-				return
-			}
+		_, err = dest.Write(metrics)
+		if err != nil {
+			p.err("Write failed '%s'\n", err)
+			return
 		}
 	}
 }
@@ -234,9 +232,7 @@ func warn(f string, args ...interface{}) {
 
 // Split the buffer by '\n' (0x0A) characters, return an byte[][] of
 // indicating each metric, and byte[] of the remaining parts of the buffer
-func ParseBuffer(buffer []byte, apiKeys *bytetrie.Node) ([][]byte, []byte, error) {
-	metrics := make([][]byte, 8)
-
+func ParseBuffer(buffer []byte, apiKeys *bytetrie.Node) ([]byte, []byte, error) {
 	var metricBufferCapacity uint = 0xff
 	metricBuffer := make([]byte, metricBufferCapacity)
 
@@ -253,11 +249,11 @@ func ParseBuffer(buffer []byte, apiKeys *bytetrie.Node) ([][]byte, []byte, error
 		if !(b == '.' || rootNamespaceAccepted) {
 			currentSearchNode, byteAccepted = currentSearchNode.Accepts(b)
 			if !byteAccepted {
-				return nil, nil,  errors.New(fmt.Sprintf("Invalid API key: %s*\n", metrics[totalMetrics]))
+				return nil, nil,  errors.New(fmt.Sprintf("Invalid API key: %s*\n", metricBuffer[metricBufferUsage - metricSize:metricBufferUsage]))
 			}
 		} else {
 			if !currentSearchNode.IsLeaf {
-				return nil, nil,  errors.New(fmt.Sprintf("Invalid API key: %s\n", metrics[totalMetrics]))
+				return nil, nil, errors.New(fmt.Sprintf("Invalid API key: %s\n", metricBuffer[metricBufferUsage - metricSize:metricBufferUsage]))
 			} else {
 				rootNamespaceAccepted = true
 			}
@@ -276,20 +272,12 @@ func ParseBuffer(buffer []byte, apiKeys *bytetrie.Node) ([][]byte, []byte, error
 		metricBufferUsage++
 
 		if b == '\n' {
-			metrics[totalMetrics] = metricBuffer[metricBufferUsage - metricSize:metricBufferUsage]
 			totalMetrics++
-
-			if totalMetrics == cap(metrics) {
-				newMetrics  := make([][]byte, cap(metrics), (cap(metrics) + 1) * 2)
-				copy(newMetrics, metrics)
-				metrics = newMetrics
-			}
-
 			metricSize = 0;
 			currentSearchNode = apiKeys;
 			rootNamespaceAccepted = false
 		}
 	}
 
-	return metrics[:totalMetrics], metricBuffer[(metricBufferUsage - metricSize):metricBufferUsage], nil
+	return metricBuffer[:metricBufferUsage - metricSize], metricBuffer[(metricBufferUsage - metricSize):metricBufferUsage], nil
 }

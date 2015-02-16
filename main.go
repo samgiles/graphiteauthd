@@ -32,12 +32,10 @@ import (
 	"os"
 	"io"
 	"bytes"
-	"github.com/mgutz/ansi"
 )
 
 var numberOfBackendConnections = flag.Int("beconnections", 1, "Number of concurrent connections to open to the Graphite backend")
 var listenAddressString = flag.String("listen", ":9090", "Address and port to bind listener to")
-var colours = flag.Bool("colour", true, "Colourise output")
 var remoteAddressString = flag.String("remote", "", "Address and port of remote graphite instance")
 var acceptKeyString     = flag.String("apikey", "MYAPIKEY", "API key to accept")
 
@@ -220,15 +218,9 @@ func check(err error) {
 }
 
 func warn(f string, args ...interface{}) {
-	fmt.Printf(c(f, "red")+"\n", args...)
+	fmt.Printf(f+"\n", args...)
 }
 
-func c(str, style string) string {
-	if *colours {
-		return ansi.Color(str, style)
-	}
-	return str
-}
 
 // Split the buffer by '\n' (0x0A) characters, return an byte[][] of
 // indicating each metric, and byte[] of the remaining parts of the buffer

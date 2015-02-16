@@ -15,7 +15,6 @@ Usage of graphiteauthd:
   -key="": Path to .pem key file
   -listen=":9090": Address and port to bind listener to
   -remote="": Address and port of remote graphite instance
-  -colour=true: Colourise output
 ```
 
 If `cert` and `key` are omitted, this will use a plain TCP connection, else it will listen with TLS enabled.

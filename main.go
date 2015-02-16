@@ -257,14 +257,6 @@ func ParseBuffer(buffer []byte, apiKeys *bytetrie.Node) ([]byte, []byte, error) 
 			}
 		}
 
-		if metricBufferUsage == metricBufferCapacity {
-			newMetricBufferCapacity := (metricBufferCapacity + 1) * 2
-			newBuffer := make([]byte, newMetricBufferCapacity, newMetricBufferCapacity)
-			copy(newBuffer, metricBuffer)
-			metricBuffer = newBuffer
-			metricBufferCapacity = newMetricBufferCapacity
-		}
-
 		metricBuffer[metricBufferUsage] = b
 		metricSize++
 		metricBufferUsage++

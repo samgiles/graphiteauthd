@@ -287,7 +287,6 @@ func ParseBuffer(buffer []byte, apiKeys *bytetrie.Node) ([][]byte, []byte, error
 
 			metricSize = 0;
 			currentSearchNode = apiKeys;
-			byteAccepted = false
 			rootNamespaceAccepted = false
 		}
 	}

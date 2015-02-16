@@ -31,7 +31,7 @@ import (
 	"fmt"
 	"os"
 	"io"
-	"bytes"
+	"github.com/samgiles/bytetrie"
 )
 
 var numberOfBackendConnections = flag.Int("beconnections", 1, "Number of concurrent connections to open to the Graphite backend")
@@ -42,6 +42,8 @@ var acceptKeyString     = flag.String("apikey", "MYAPIKEY", "API key to accept")
 var certificateFile = flag.String("cert", "", "Path to .pem certificate")
 var keyFile         = flag.String("key", "", "Path to .pem key file")
 
+var searchRoot = new(bytetrie.Node)
+
 func main() {
 	flag.Parse()
 
@@ -51,8 +53,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	if *acceptKeyString == "" {
+		warn("Flag: 'apiKey' is required")
+		flag.Usage()
+		os.Exit(1)
+	}
 
+
+	searchRoot.Insert([]byte(*acceptKeyString))
 	multiplexers := initialiseMultiplexers(*numberOfBackendConnections, *remoteAddressString)
+
 
 	if *certificateFile == "" || *keyFile == "" {
 		warn("No certiciate file or key file found, not using TLS")
@@ -179,7 +189,7 @@ func (p *proxy) pipe() {
 
 		receivedBytes := buffer[:numberOfBytes]
 
-		metrics, remaining, err := ParseBuffer(receivedBytes, []byte(*acceptKeyString))
+		metrics, remaining, err := ParseBuffer(receivedBytes, searchRoot)
 		if err != nil {
 			p.err("Connection dropped terminated '%s'\n", err)
 			return
@@ -224,9 +234,8 @@ func warn(f string, args ...interface{}) {
 
 // Split the buffer by '\n' (0x0A) characters, return an byte[][] of
 // indicating each metric, and byte[] of the remaining parts of the buffer
-func ParseBuffer(buffer []byte, validKey []byte) ([][]byte, []byte, error) {
+func ParseBuffer(buffer []byte, apiKeys *bytetrie.Node) ([][]byte, []byte, error) {
 	metrics := make([][]byte, 8)
-	rootNamespaceBuffer := make([]byte, 64)
 
 	var metricBufferCapacity uint = 0xff
 	metricBuffer := make([]byte, metricBufferCapacity)
@@ -234,9 +243,25 @@ func ParseBuffer(buffer []byte, validKey []byte) ([][]byte, []byte, error) {
 	var metricSize uint =  0
 	var metricBufferUsage uint = 0
 	var totalMetrics int = 0
-	var isValidMetric = false
+	var currentSearchNode = apiKeys
+	var byteAccepted = false
+
+	var rootNamespaceAccepted = false
 
 	for _, b := range buffer {
+
+		if b != '.' && !rootNamespaceAccepted {
+			currentSearchNode, byteAccepted = currentSearchNode.Accepts(b)
+			if !byteAccepted {
+				return nil, nil,  errors.New(fmt.Sprintf("Invalid API key: %s*\n", metrics[totalMetrics]))
+			}
+		} else {
+			if !currentSearchNode.IsLeaf {
+				return nil, nil,  errors.New(fmt.Sprintf("Invalid API key: %s\n", metrics[totalMetrics]))
+			} else {
+				rootNamespaceAccepted = true
+			}
+		}
 
 		if metricBufferUsage == metricBufferCapacity {
 			newMetricBufferCapacity := (metricBufferCapacity + 1) * 2
@@ -246,41 +271,24 @@ func ParseBuffer(buffer []byte, validKey []byte) ([][]byte, []byte, error) {
 			metricBufferCapacity = newMetricBufferCapacity
 		}
 
-
-		// 32 length in bytes of a sha256 hash (buffer the first 32 bytes
-		// in order to perform a comparison
-		if metricSize <= 64 {
-			// Until the first '.' character record the root of the
-			// namespace
-			if metricSize == 64 {
-				if b == '.' && bytes.Equal(rootNamespaceBuffer, validKey) {
-					isValidMetric = true
-				}
-			} else {
-				rootNamespaceBuffer[metricSize] = b;
-			}
-		}
-
 		metricBuffer[metricBufferUsage] = b
 		metricSize++
 		metricBufferUsage++
 
 		if b == '\n' {
 			metrics[totalMetrics] = metricBuffer[metricBufferUsage - metricSize:metricBufferUsage]
-			if isValidMetric {
-				totalMetrics++
+			totalMetrics++
 
-				if totalMetrics == cap(metrics) {
-					newMetrics  := make([][]byte, cap(metrics), (cap(metrics) + 1) * 2)
-					copy(newMetrics, metrics)
-					metrics = newMetrics
-				}
-			} else {
-				return nil, nil, errors.New(fmt.Sprintf("Invalid API key: %s", metrics[totalMetrics]))
+			if totalMetrics == cap(metrics) {
+				newMetrics  := make([][]byte, cap(metrics), (cap(metrics) + 1) * 2)
+				copy(newMetrics, metrics)
+				metrics = newMetrics
 			}
 
 			metricSize = 0;
-			isValidMetric = false
+			currentSearchNode = apiKeys;
+			byteAccepted = false
+			rootNamespaceAccepted = false
 		}
 	}
 

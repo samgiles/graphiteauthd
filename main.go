@@ -231,7 +231,7 @@ func warn(f string, args ...interface{}) {
 // Split the buffer by '\n' (0x0A) characters, return an byte[][] of
 // indicating each metric, and byte[] of the remaining parts of the buffer
 func ParseBuffer(buffer []byte, apiKeys *bytetrie.Node) ([]byte, []byte, error) {
-	var metricBufferCapacity uint = 0xff
+	var metricBufferCapacity uint = uint(len(buffer)) << 1
 	metricBuffer := make([]byte, metricBufferCapacity)
 
 	var metricSize uint =  0

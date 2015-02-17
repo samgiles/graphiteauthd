@@ -231,12 +231,8 @@ func warn(f string, args ...interface{}) {
 // Split the buffer by '\n' (0x0A) characters, return an byte[][] of
 // indicating each metric, and byte[] of the remaining parts of the buffer
 func ParseBuffer(buffer []byte, apiKeys *bytetrie.Node) ([]byte, []byte, error) {
-	var metricBufferCapacity uint = uint(len(buffer))
-	metricBuffer := make([]byte, metricBufferCapacity)
-
 	var metricSize uint =  0
 	var metricBufferUsage uint = 0
-	var totalMetrics int = 0
 	var currentSearchNode = apiKeys
 	var byteAccepted = false
 
@@ -244,30 +240,30 @@ func ParseBuffer(buffer []byte, apiKeys *bytetrie.Node) ([]byte, []byte, error) 
 
 	for _, b := range buffer {
 
-		if !(b == '.' || rootNamespaceAccepted) {
-			currentSearchNode, byteAccepted = currentSearchNode.Accepts(b)
-			if !byteAccepted {
-				return nil, nil,  errors.New(fmt.Sprintf("Invalid API key: %s*", metricBuffer[metricBufferUsage - metricSize:metricBufferUsage]))
-			}
-		} else {
+		if (b == '.') {
 			if !currentSearchNode.IsLeaf {
-				return nil, nil, errors.New(fmt.Sprintf("Invalid API key: %s", metricBuffer[metricBufferUsage - metricSize:metricBufferUsage]))
+				return nil, nil, errors.New(fmt.Sprintf("Invalid API key: %s", buffer[metricBufferUsage - metricSize:metricBufferUsage]))
 			} else {
 				rootNamespaceAccepted = true
 			}
 		}
 
-		metricBuffer[metricBufferUsage] = b
+		if !rootNamespaceAccepted {
+			currentSearchNode, byteAccepted = currentSearchNode.Accepts(b)
+			if !byteAccepted {
+				return nil, nil,  errors.New(fmt.Sprintf("Invalid API key: %s*", buffer[metricBufferUsage - metricSize:metricBufferUsage]))
+			}
+		}
+
 		metricSize++
 		metricBufferUsage++
 
 		if b == '\n' {
-			totalMetrics++
 			metricSize = 0;
 			currentSearchNode = apiKeys;
 			rootNamespaceAccepted = false
 		}
 	}
 
-	return metricBuffer[:metricBufferUsage - metricSize], metricBuffer[(metricBufferUsage - metricSize):metricBufferUsage], nil
+	return buffer[:metricBufferUsage - metricSize], buffer[(metricBufferUsage - metricSize):metricBufferUsage], nil
 }
